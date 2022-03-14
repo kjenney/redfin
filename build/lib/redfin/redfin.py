@@ -1,6 +1,9 @@
 import requests
 import json
+import os
 
+requests.packages.urllib3.disable_warnings(
+    requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 class Redfin:
     def __init__(self):
@@ -8,6 +11,7 @@ class Redfin:
         self.user_agent_header = {
             'user-agent': 'redfin'
         }
+        self.session = requests.Session()
 
     def meta_property(self, url, kwargs, page=False):
         if page:
@@ -17,11 +21,52 @@ class Redfin:
             **kwargs
         })
 
+    def sget(self, url):
+        return self.session.get(self.base + url, headers=self.user_agent_header, verify=False)
+
+    def get(self, url, kwargs):
+        return self.session.get(self.base + url, headers=self.user_agent_header, verify=False, params=kwargs)
+
+    def post(self, url, kwargs):
+        return self.session.post(self.base + url, headers=self.user_agent_header, verify=False, params=kwargs)
+
     def meta_request(self, url, kwargs):
-        response = requests.get(
-            self.base + url, params=kwargs, headers=self.user_agent_header)
+        response = self.get(url, kwargs)
         response.raise_for_status()
         return json.loads(response.text[4:])
+
+    def login(self, user, pwd, **kwargs): #url, cookies=None, **kwargs):
+        """Login to the API"""
+        if self._restore_cookies() == 200:
+            print('re-use cookie')
+            return 200
+    
+        resp = self.post(
+                         '/do/api-login',
+                         data={'email': user, 'pwd': pwd})
+        print(resp.content[4:])
+        print('cookie:', self.session.cookies.items())
+        if resp.status_code == 200:
+            self.save_cookies()
+        return resp.status_code
+
+    def _restore_cookies(self):
+        if not os.path.exists('cookies.json'):
+            return 400
+
+        cookies = json.load(open('cookies.json'))
+        for c in cookies:
+            self.session.cookies.set(c[0], c[1])
+        resp = self.sget('api/gis-csv?al=3&market=sanfrancisco&max_price=900000&min_price=450000&ord=days-on-redfin-asc&page_number=1&region_id=345&region_type=5&sf=1,2,3,5,6,7&sp=true&status=9&uipt=1,2,3&v=8')
+        if resp.status_code != 200:
+            self.session.cookies.clear()
+            return 400
+        else:
+            return 200
+
+    def save_cookies(self):
+        with open('cookies.json', 'w+') as f:
+            f.write(json.dumps(self.session.cookies.items()))
 
     # Url Requests
 

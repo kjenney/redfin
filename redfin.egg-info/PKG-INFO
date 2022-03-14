@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: redfin
-Version: 0.1.1
+Version: 0.1.2
 Summary: A python wrapper around the unofficial redfin API.
 Home-page: https://github.com/reteps/redfin
 Author: Peter Stenger
@@ -9,6 +9,7 @@ License: MIT
 Description: # Python-Redfin
         
         A wrapper around redfin's unofficial API. Anything on the redfin site can be accessed through this module without screen scraping.
+        
         ### Installation
         
         ```
@@ -23,17 +24,35 @@ Description: # Python-Redfin
         
         client = Redfin()
         
-        address = '4544 Radnor St, Detroit Michigan'
+        address = '256 Speen St, Natick, Massachusetts'
+        
+        status = client.login(os.environ.get('REDFIN_USER'), os.environ.get('REDFIN_PWD'))
+        print('login status:', status)
+        assert(status == 200)
+        response = client.search(address)
+        url = response['payload']['exactMatch']['url']
+        initial_info = client.initial_info(url)
+        property_id = initial_info['payload']['propertyId']
+        owner_estimate = client.owner_estimate(property_id)
+        print(owner_estimate)
+        client.save_cookies()
+        
         
         response = client.search(address)
         url = response['payload']['exactMatch']['url']
         initial_info = client.initial_info(url)
         
         property_id = initial_info['payload']['propertyId']
-        listing_id = initial_info['payload']['listingId']
+        mls_data = client.below_the_fold(property_id)
         
-        mls_data = client.below_the_fold(property_id, listing_id)
+        listing_id = initial_info['payload']['listingId']
+        avm_details = client.avm_details(property_id, listing_id)
+        
+        
         ```
+        ### Usage Notes
+        
+        + sometimes `below_the_fold` lacks propertyHistoryInfo -- see [#11](https://github.com/reteps/redfin/issues/11) if this is needed
         
         ### Documentation
         
